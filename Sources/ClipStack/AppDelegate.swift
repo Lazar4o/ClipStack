@@ -3,7 +3,6 @@ import AppKit
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var sigtermSource: DispatchSourceSignal?   // must stay alive
-    private var statusItem: NSStatusItem?
     private(set) var controller: AppController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -14,25 +13,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         installSIGTERMHandler()
         MainMenu.install(settingsTarget: self, settingsAction: #selector(openSettings))
 
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        item.button?.image = NSImage(systemSymbolName: "list.clipboard", accessibilityDescription: "ClipStack")
-            ?? NSImage(systemSymbolName: "doc.on.clipboard", accessibilityDescription: "ClipStack")
-        item.button?.image?.isTemplate = true
-        let menu = NSMenu()
-        menu.addItem(withTitle: "Quit ClipStack", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-        item.menu = menu
-        statusItem = item
-
         let controller = AppController()
-        controller.start()
         self.controller = controller
+        controller.start()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         controller?.shutdown()
     }
 
-    @objc func openSettings() {}
+    /// Opening the app again from Finder/Spotlight while it runs → show Settings, so something visibly happens.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        controller?.openSettings()
+        return false
+    }
+
+    @objc func openSettings() {
+        controller?.openSettings()
+    }
 
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool { true }
 
@@ -45,7 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .contains { $0.processIdentifier != me && !$0.isTerminated }
     }
 
-    /// `kill -TERM` (used by install.sh) → normal terminate, so applicationWillTerminate runs.
+    /// `kill -TERM` (used by install.sh) → normal terminate, so applicationWillTerminate flushes history.
     private func installSIGTERMHandler() {
         signal(SIGTERM, SIG_IGN)
         let source = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
