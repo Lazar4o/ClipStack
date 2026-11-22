@@ -112,3 +112,7 @@ tccutil reset Accessibility local.tools.ClipStack
 ```
 
 and remove it from System Settings › General › Login Items if it's still listed.
+
+## License
+
+MIT, see [LICENSE](LICENSE).
