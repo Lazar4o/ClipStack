@@ -5,7 +5,7 @@ import os
 ///   <base>/history.json                      {"version":1,"items":[ClipItem…]}  (small, never holds payloads)
 ///   <base>/blobs/<uuid>.txt|.rtf|.html|.png|-thumb.png
 /// All file work runs on one serial queue, so a read right after a write sees the written file.
-public final class HistoryPersistence {
+public final class HistoryPersistence: @unchecked Sendable {   // file work is serialized on `queue`; pendingSave is main-only
     public enum BlobKind: CaseIterable {
         case text, rtf, html, png, thumbnail
 

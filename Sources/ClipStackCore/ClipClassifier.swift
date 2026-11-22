@@ -35,7 +35,7 @@ public struct CaptureRules: Sendable {
 }
 
 /// Raw content pulled off the pasteboard, before hashing/normalizing.
-public enum CapturedClip: Equatable {
+public enum CapturedClip: Equatable, Sendable {
     case text(plain: String, rtf: Data?, html: Data?)
     case image(data: Data, uti: String)
 }

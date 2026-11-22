@@ -4,6 +4,7 @@ import AppKit
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var sigtermSource: DispatchSourceSignal?   // must stay alive
     private var statusItem: NSStatusItem?
+    private(set) var controller: AppController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard isOnlyInstance() else {
@@ -21,6 +22,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: "Quit ClipStack", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         item.menu = menu
         statusItem = item
+
+        let controller = AppController()
+        controller.start()
+        self.controller = controller
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        controller?.shutdown()
     }
 
     @objc func openSettings() {}
