@@ -15,6 +15,7 @@ final class PanelController {
     var onOpenSettings: (() -> Void)?
 
     private let panel: FloatingPanel
+    private let glass: NSGlassEffectView
     private let store: HistoryStore
     private let prefs: Preferences
     private let pasteService: PasteService
@@ -32,7 +33,14 @@ final class PanelController {
         self.pasteService = pasteService
         model = HistoryViewModel(store: store)
         let size = NSSize(width: PanelMetrics.width, height: PanelMetrics.height)
-        panel = FloatingPanel(size: size)
+        let margin = PanelMetrics.shadowMargin
+        // The window is larger than the glass by a transparent margin that holds our own rounded shadow.
+        // (The system window shadow follows the rectangular window bounds → a square rim around the glass.)
+        panel = FloatingPanel(size: NSSize(width: size.width + 2 * margin, height: size.height + 2 * margin))
+        let glassFrame = NSRect(x: margin, y: margin, width: size.width, height: size.height)
+        glass = NSGlassEffectView(frame: glassFrame)     // before the closures below capture self
+        glass.style = .regular
+        glass.cornerRadius = PanelMetrics.cornerRadius
 
         let actions = HistoryActions(
             pick: { [weak self] item, plain in self?.pick(item, plainText: plain) },
@@ -43,13 +51,14 @@ final class PanelController {
         )
         let hosting = NSHostingView(rootView: HistoryView(model: model, prefs: prefs, thumbnails: thumbnails, actions: actions))
         hosting.sizingOptions = []                    // don't let SwiftUI resize the panel
-        let glass = NSGlassEffectView(frame: NSRect(origin: .zero, size: size))
-        glass.style = .regular
-        glass.cornerRadius = PanelMetrics.cornerRadius
         hosting.frame = glass.bounds
         hosting.autoresizingMask = [.width, .height]
         glass.contentView = hosting
-        panel.contentView = glass
+
+        let container = PanelContainerView(frame: NSRect(origin: .zero, size: panel.frame.size), glassFrame: glassFrame)
+        container.addSubview(Self.makeShadowView(bounds: container.bounds, glassFrame: glassFrame))
+        container.addSubview(glass)
+        panel.contentView = container
 
         panel.onResignKey = { [weak self] in self?.hide() }
     }
@@ -78,7 +87,6 @@ final class PanelController {
         panel.orderFrontRegardless()
         panel.makeKey()                // NEVER NSApp.activate here: the previous app must stay active
         if let field = panel.initialFirstResponder { panel.makeFirstResponder(field) }
-        panel.invalidateShadow()
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.12
             self.panel.animator().alphaValue = 1
@@ -94,8 +102,37 @@ final class PanelController {
     }
 
     func debugSnapshot(to url: URL) {
-        guard let hosting = (panel.contentView as? NSGlassEffectView)?.contentView else { return }
+        guard let hosting = glass.contentView else { return }
         DebugHooks.render(hosting, to: url)
+    }
+
+    /// Soft shadow that follows the rounded glass, drawn only OUTSIDE the glass (masked), so it doesn't
+    /// darken the translucent glass from behind. Layer-hosting view: AppKit leaves its layer alone.
+    private static func makeShadowView(bounds: NSRect, glassFrame: NSRect) -> NSView {
+        let view = NSView(frame: bounds)
+        let radius = PanelMetrics.cornerRadius
+        let glassPath = CGPath(roundedRect: glassFrame, cornerWidth: radius, cornerHeight: radius, transform: nil)
+
+        let shadowLayer = CALayer()
+        shadowLayer.frame = bounds
+        shadowLayer.shadowPath = glassPath
+        shadowLayer.shadowColor = NSColor.black.cgColor
+        shadowLayer.shadowOpacity = 0.30
+        shadowLayer.shadowRadius = 14
+        shadowLayer.shadowOffset = CGSize(width: 0, height: -5)
+
+        let outside = CGMutablePath()
+        outside.addRect(bounds)
+        outside.addPath(glassPath)
+        let mask = CAShapeLayer()
+        mask.frame = bounds
+        mask.path = outside
+        mask.fillRule = .evenOdd
+        shadowLayer.mask = mask
+
+        view.layer = shadowLayer
+        view.wantsLayer = true
+        return view
     }
 
     // MARK: - Picking
@@ -194,9 +231,11 @@ final class PanelController {
 
     // MARK: - Position
 
+    /// Places the GLASS (not the larger window) at the anchor, then offsets the window by the shadow margin.
     /// AppKit coordinates: origin bottom-left; `NSEvent.mouseLocation` is global.
     private func position(_ anchor: Anchor) {
-        let size = panel.frame.size
+        let size = NSSize(width: PanelMetrics.width, height: PanelMetrics.height)
+        let margin = PanelMetrics.shadowMargin
         let mouse = NSEvent.mouseLocation
         let screen: NSScreen?
         var origin: NSPoint
@@ -219,6 +258,6 @@ final class PanelController {
         guard let visible = screen?.visibleFrame else { return }
         origin.x = min(max(origin.x, visible.minX + 8), visible.maxX - size.width - 8)
         origin.y = min(max(origin.y, visible.minY + 8), visible.maxY - size.height - 8)
-        panel.setFrameOrigin(origin)
+        panel.setFrameOrigin(NSPoint(x: origin.x - margin, y: origin.y - margin))
     }
 }
