@@ -131,7 +131,7 @@ struct HistoryView: View {
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
             } else {
-                Text("No matches for “\(model.query)”")
+                Text(verbatim: "No matches for “\(model.query)”")      // verbatim: never parse Markdown/links
                     .font(.system(size: 14, weight: .semibold))
                     .lineLimit(1)
             }

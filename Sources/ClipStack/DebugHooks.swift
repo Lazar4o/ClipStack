@@ -1,6 +1,9 @@
 import AppKit
 
-/// Development-only hooks, active only when `defaults write local.tools.ClipStack DebugHooks -bool YES`.
+/// Development-only hooks. COMPILED OUT of release builds (scripts/install.sh builds release):
+/// distributed notifications can be posted by any local process, so they must never ship.
+/// Debug build: `CONFIG=debug scripts/install.sh`, then
+/// `defaults write local.tools.ClipStack DebugHooks -bool YES` and relaunch.
 /// Lets scripts open the panel, set the search query and render windows to PNG
 /// (in-process rendering of ClipStack's own views; no screen capture).
 ///
@@ -13,6 +16,7 @@ enum DebugHooks {
     static let prefix = "local.tools.ClipStack.debug."
 
     static func installIfEnabled(controller: AppController) {
+        #if DEBUG
         guard UserDefaults.standard.bool(forKey: "DebugHooks") else { return }
         let center = DistributedNotificationCenter.default()
         func observe(_ name: String, _ handler: @escaping @MainActor (String?) -> Void) {
@@ -29,6 +33,7 @@ enum DebugHooks {
         observe("settings") { path in
             if let path { controller.debugSnapshotSettings(to: URL(fileURLWithPath: path)) }
         }
+        #endif
     }
 
     /// Renders a view (and its subviews) onto an opaque background and writes a PNG.

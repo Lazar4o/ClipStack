@@ -53,6 +53,22 @@ copies, and anything copied while capturing is paused.
 - **Paste from Other Apps** (Privacy & Security, macOS 15.4+): if macOS ever asks whether ClipStack may
   read the clipboard, choose Allow. Settings › Clipboard access shows the current state.
 
+## Security & privacy
+
+- **Nothing leaves your Mac.** No network code, no listening ports, no URL scheme, no AppleScript
+  dictionary, no inter-process hooks (development hooks are compiled out of release builds), no third-party
+  dependencies.
+- **What it stores:** everything you copy, except password-manager copies (nspasteboard.org concealed/transient
+  markers, plus Passwords, Keychain Access, 1Password and Bitwarden) and Finder file copies. History is kept
+  unencrypted in `~/Library/Application Support/ClipStack` (folder readable only by you; FileVault protects it
+  at rest). A program already running as you could read it, just as it could read the clipboard. For
+  sensitive work: Pause Capturing, ⌘⌫ to delete an item, or keep the limit small.
+- **Accessibility** is used only to press ⌘V after you pick an item. The app is signed with the hardened
+  runtime, so other programs can't inject code into it to borrow that permission.
+- **Pasting into Terminal** pastes exactly what was copied, like ⌘V does. Check commands copied from web pages
+  before pasting them (they can hide extra lines).
+- Copied images are decoded by macOS's own ImageIO to make thumbnails (the same decoder Preview uses).
+
 ## Troubleshooting
 
 - **Paste stopped working after a rebuild / the Accessibility switch is on but nothing pastes:** the
@@ -77,9 +93,10 @@ swift scripts/test-concealed.swift          # fake password-manager copy (must N
 swift scripts/make-icon.swift               # regenerate Resources/AppIcon.icns
 ```
 
-Debug hooks (render the panel to PNG, set the query, toggle the panel from scripts) are off by default:
-`defaults write local.tools.ClipStack DebugHooks -bool YES`, relaunch, then
-`swift scripts/debug-hook.swift <toggle|query|snapshot|settings> [arg]`.
+Debug hooks (render the panel to PNG, set the query, toggle the panel from scripts) exist only in debug
+builds: `CONFIG=debug scripts/install.sh`, `defaults write local.tools.ClipStack DebugHooks -bool YES`, relaunch,
+then `swift scripts/debug-hook.swift <toggle|query|snapshot|settings> [arg]`. Run `scripts/install.sh` again
+to go back to the release build.
 
 Layout: `Sources/ClipStackCore` (capture rules, storage, eviction, search — unit-tested) and
 `Sources/ClipStack` (AppKit app: panel, hotkey, paste, settings). Design notes and gotchas: `docs/PLAN.md`.

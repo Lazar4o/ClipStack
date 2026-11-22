@@ -37,7 +37,12 @@ public final class HistoryPersistence: @unchecked Sendable {   // file work is s
     public init(baseURL: URL, saveDelay: TimeInterval = 0.3) {
         self.baseURL = baseURL
         self.saveDelay = saveDelay
-        try? FileManager.default.createDirectory(at: blobsURL, withIntermediateDirectories: true)
+        // History can hold sensitive text: only the owning user may enter these folders.
+        let fm = FileManager.default
+        for dir in [baseURL, blobsURL] {
+            try? fm.createDirectory(at: dir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+            try? fm.setAttributes([.posixPermissions: 0o700], ofItemAtPath: dir.path)
+        }
     }
 
     /// ~/Library/Application Support/ClipStack
